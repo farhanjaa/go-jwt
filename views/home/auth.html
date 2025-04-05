@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Page</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Login</h2>
+        <form id="login-form">
+            <label for="login-email">Email:</label>
+            <input type="email" id="login-email" name="email" required>
+
+            <label for="login-password">Password:</label>
+            <input type="password" id="login-password" name="password" required>
+
+            <button type="submit">Login</button>
+        </form>
+        <p id="login-message"></p> <!-- Tempat menampilkan hasil login -->
+
+        <h2>Register</h2>
+        <form id="register-form">
+            <label for="register-name">Name:</label>
+            <input type="text" id="register-name" name="name" required>
+
+            <label for="register-email">Email:</label>
+            <input type="email" id="register-email" name="email" required>
+
+            <label for="register-password">Password:</label>
+            <input type="password" id="register-password" name="password" required>
+
+            <label for="register-passwordConfirm">Confirm Password:</label>
+            <input type="password" id="register-passwordConfirm" name="passwordConfirm" required>
+
+            <button type="submit">Register</button>
+        </form>
+        <p id="register-message"></p> <!-- Tempat menampilkan hasil register -->
+    </div>
+
+    <script>
+        document.getElementById("login-form").addEventListener("submit", async function(event) {
+            event.preventDefault(); // Mencegah form refresh halaman
+
+            const email = document.getElementById("login-email").value;
+            const password = document.getElementById("login-password").value;
+
+            const response = await fetch("http://localhost:8080/login", { // Updated URL
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+
+            const result = await response.json();
+            document.getElementById("login-message").innerText = result.message;
+
+            if (response.ok) {
+                alert("Login berhasil! Token: " + result.data);
+                console.log("Token:", result.data);  // Ditampilkan di konsol browser
+            } else {
+                alert("Login gagal: " + result.message);
+            }
+        });
+
+        document.getElementById("register-form").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const name = document.getElementById("register-name").value;
+            const email = document.getElementById("register-email").value;
+            const password = document.getElementById("register-password").value;
+            const password_confirm = document.getElementById("register-passwordConfirm").value;
+
+            alert("PasswordConfirm : " + password_confirm); // Debugging log
+
+            const response = await fetch("http://localhost:8080/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, email, password, password_confirm }) // Ensure PasswordConfirm is included
+            });
+
+            const result = await response.json();
+            console.log("Response received:", result); // Debugging log
+            document.getElementById("register-message").innerText = result.message;
+
+            if (response.ok) {
+                alert("Registrasi berhasil!");
+            } else {
+                alert("Registrasi gagal: " + result.message);
+            }
+        });
+    </script>
+</body>
+</html>
