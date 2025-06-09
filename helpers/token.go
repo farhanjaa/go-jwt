@@ -1,8 +1,10 @@
 package helpers
 
 import (
-	"fmt"
+	"errors"
 	"go-jwt/models"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,41 +16,58 @@ type MyCustomClaims struct {
 	ID    int    `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
+	Role  string `json:"role"` // Tambahkan role di sini
 	jwt.RegisteredClaims
 }
 
-func CreateToken(user *models.User) (string, error) {
-	claims := MyCustomClaims{
-		user.ID,
-		user.Name,
-		user.Email,
-		jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	ss, err := token.SignedString(mySigningKey)
-
-	return ss, err
+type UserInfo struct {
+	ID    int
+	Name  string
+	Email string
+	Role  string
 }
 
-func ValidateToken(tokenString string) (any, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &MyCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return mySigningKey, nil
+func CreateToken(user *models.User) (string, error) {
+	// Ambil TTL dari ENV
+	ttlStr := os.Getenv("TOKEN_TTL")
+	ttl, err := strconv.Atoi(ttlStr)
+	if err != nil {
+		ttl = 1800 // default 30 menit jika gagal ambil env
+	}
+
+	claims := jwt.MapClaims{
+		"id":    user.ID,
+		"name":  user.Name,
+		"email": user.Email,
+		"role":  user.Role,
+		"exp":   time.Now().Add(time.Duration(ttl) * time.Second).Unix(),
+		"iat":   time.Now().Unix(),
+		"nbf":   time.Now().Unix(),
+	}
+
+	secret := os.Getenv("JWT_SECRET")
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
+
+func ValidateToken(tokenStr string) (UserInfo, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &MyCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("JWT_SECRET")), nil
 	})
 
-	if err != nil {
-		return nil, fmt.Errorf("unauthorized")
+	if err != nil || !token.Valid {
+		return UserInfo{}, errors.New("invalid token")
 	}
 
 	claims, ok := token.Claims.(*MyCustomClaims)
-
-	if !ok || !token.Valid {
-		return nil, fmt.Errorf("unauthorized")
+	if !ok {
+		return UserInfo{}, errors.New("invalid claims")
 	}
 
-	return claims, nil
+	return UserInfo{
+		ID:    claims.ID,
+		Name:  claims.Name,
+		Email: claims.Email,
+		Role:  claims.Role,
+	}, nil
 }

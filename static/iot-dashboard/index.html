@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Industrial IoT Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Orbitron', sans-serif;
+      background-color: #121212;
+      color: #ffa500;
+    }
+
+    .navbar {
+      background-color: #1a1a1a;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 6px rgba(255, 165, 0, 0.3);
+      display: flex;
+      align-items: center;
+    }
+
+    .navbar button {
+      background-color: #444;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      transition: background 0.3s;
+    }
+
+    .navbar button:hover {
+      background-color: #666;
+    }
+
+    h1 {
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 2rem;
+    }
+
+    .dashboard {
+      max-width: 1000px;
+      margin: 2rem auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .chart-card {
+      position: relative;
+      background-color: #1f1f1f;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px #f5ba1a66;
+    }
+
+    .value-badge {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background-color: #0f0f0f;
+      color: #00ff99;
+      border: 2px solid #00ff99;
+      border-radius: 8px;
+      padding: 0.3rem 0.8rem;
+      font-size: 1.3rem;
+      box-shadow: 0 0 5px #00ff9955;
+    }
+
+    .relay-status {
+      background-color: #1f1f1f;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px #f5ba1a66;
+      text-align: center;
+    }
+
+    #relayStatus {
+      font-size: 1.5rem;
+      color: #00ff99;
+    }
+
+    .buttons {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .buttons button {
+      padding: 10px 20px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 0 5px #999;
+      transition: all 0.3s ease;
+    }
+
+    .buttons button:hover {
+      transform: scale(1.05);
+    }
+
+    .btn-on {
+      background-color: green;
+      color: white;
+    }
+
+    .btn-off {
+      background-color: red;
+      color: white;
+    }
+
+    #feedback {
+      text-align: center;
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+
+    @media (max-width: 768px) {
+      .value-badge {
+        font-size: 1rem;
+        top: 0.5rem;
+        right: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar with Back Button -->
+  <div class="navbar">
+    <button onclick="goBack()">⬅ Back</button>
+  </div>
+
+  <h1>🏭 Industrial IoT Monitor</h1>
+
+  <div class="dashboard">
+    <!-- Temperature Chart -->
+    <div class="chart-card">
+      <canvas id="tempChart" height="100"></canvas>
+      <div class="value-badge" id="tempValue">-- °C</div>
+    </div>
+
+    <!-- Humidity Chart -->
+    <div class="chart-card">
+      <canvas id="humChart" height="100"></canvas>
+      <div class="value-badge" id="humValue">-- %</div>
+    </div>
+
+    <!-- Relay Control -->
+    <div class="relay-status">
+      <h3>🛰️ Relay Status:</h3>
+      <div id="relayStatus">UNKNOWN</div>
+      <div class="buttons">
+        <button class="btn-on" onclick="turnRelayOn()">Turn ON</button>
+        <button class="btn-off" onclick="turnRelayOff()">Turn OFF</button>
+      </div>
+      <div id="feedback"></div>
+    </div>
+  </div>
+
+  <script>
+    const ws = new WebSocket("ws://localhost:8081/ws");
+
+    const labels = [];
+    const temperatures = [];
+    const humidities = [];
+
+    const MAX_POINTS = 20;
+
+    function formatTime(timestamp) {
+      const date = new Date(timestamp * 1000);
+      return date.toLocaleTimeString();
+    }
+
+    const tempCtx = document.getElementById("tempChart").getContext("2d");
+    const humCtx = document.getElementById("humChart").getContext("2d");
+
+    const tempChart = new Chart(tempCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: "🌡️ Temperature (°C)",
+          data: temperatures,
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderColor: 'rgb(255, 99, 132)',
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+
+    const humChart = new Chart(humCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: "💧 Humidity (%)",
+          data: humidities,
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          borderColor: 'rgb(54, 162, 235)',
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+
+    ws.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "status") {
+        const statusSpan = document.getElementById("relayStatus");
+        statusSpan.textContent = data.status;
+        statusSpan.style.color = data.status.includes("ON") ? "lime" : "red";
+        return;
+      }
+
+      const timeLabel = formatTime(data.timestamp);
+      labels.push(timeLabel);
+      temperatures.push(data.temperature);
+      humidities.push(data.humidity);
+
+      if (labels.length > MAX_POINTS) {
+        labels.shift();
+        temperatures.shift();
+        humidities.shift();
+      }
+
+      tempChart.update();
+      humChart.update();
+      document.getElementById("tempValue").textContent = `${data.temperature.toFixed(1)} °C`;
+      document.getElementById("humValue").textContent = `${data.humidity.toFixed(1)} %`;
+    };
+
+    ws.onopen = () => console.log("✅ WebSocket connected.");
+    ws.onerror = err => console.error("❌ WebSocket error:", err);
+    ws.onclose = () => console.warn("🔌 WebSocket disconnected");
+
+    function goBack() {
+      window.history.back();
+    }
+
+    function showFeedback(message, isSuccess = true) {
+      const feedback = document.getElementById("feedback");
+      feedback.textContent = message;
+      feedback.style.color = isSuccess ? "lime" : "red";
+      setTimeout(() => feedback.textContent = "", 3000);
+    }
+
+    function turnRelayOn() {
+      fetch("/relay/on", { method: "POST" })
+        .then(response => {
+          if (!response.ok) throw new Error("Gagal ON");
+          showFeedback("✅ Relay turned ON");
+        })
+        .catch(err => showFeedback("❌ " + err.message, false));
+    }
+
+    function turnRelayOff() {
+      fetch("/relay/off", { method: "POST" })
+        .then(response => {
+          if (!response.ok) throw new Error("Gagal OFF");
+          showFeedback("✅ Relay turned OFF");
+        })
+        .catch(err => showFeedback("❌ " + err.message, false));
+    }
+  </script>
+</body>
+</html>

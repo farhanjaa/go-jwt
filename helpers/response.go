@@ -10,6 +10,7 @@ type ResponseWithData struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 	Data    any    `json:"data"`
+	Role    string `json:"role"`
 }
 
 type ResponseWithoutData struct {
@@ -33,6 +34,7 @@ func Response(w http.ResponseWriter, code int, message string, payload interface
 			Status:  status,
 			Message: message,
 			Data:    payload, // Ensure Data field is populated
+			Role:    "",      // Tambahkan role jika diperlukan, bisa diisi dari payload atau context
 		}
 	} else {
 		response = &ResponseWithoutData{

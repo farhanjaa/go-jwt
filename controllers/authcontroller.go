@@ -22,6 +22,17 @@ func AuthPage(w http.ResponseWriter, r *http.Request) {
 func Register(w http.ResponseWriter, r *http.Request) {
 	var register models.Register
 
+	// Render the register.html page for GET request
+	if r.Method == http.MethodGet {
+		tmpl, err := template.ParseFiles("views/home/register.html")
+		if err != nil {
+			http.Error(w, "Error loading register page", http.StatusInternalServerError)
+			return
+		}
+		tmpl.Execute(w, nil)
+		return
+	}
+
 	// Cek apakah request dari JSON atau Form HTML
 	if r.Header.Get("Content-Type") == "application/json" {
 		// Jika JSON, baca dari body
@@ -39,8 +50,6 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		log.Println("Parsed Form Data:", register) // Debugging log
 	}
 	defer r.Body.Close()
-
-	// log.Println("PasswordConfirm received:", register.PasswordConfirm) // Debugging log
 
 	// Cek password confirmation
 	if register.Password != register.PasswordConfirm {
@@ -60,6 +69,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		Name:     register.Name,
 		Email:    register.Email,
 		Password: passwordHash,
+		Role:     "user", // default atau input dari form
 	}
 
 	if err := configs.DB.Create(&user).Error; err != nil {
@@ -70,52 +80,113 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	helpers.Response(w, 201, "Register Successfully", nil)
 }
 
+func Logout(w http.ResponseWriter, r *http.Request) {
+	// Hapus token dari cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:   "token", // sesuaikan jika kamu menyimpan token di cookie dengan nama lain
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1, // Hapus cookie
+	})
+	// Redirect ke halaman login
+	http.Redirect(w, r, "/auth", http.StatusSeeOther)
+}
+
 func Login(w http.ResponseWriter, r *http.Request) {
 	var login models.Login
 
-	// Parse the JSON body
-	if err := json.NewDecoder(r.Body).Decode(&login); err != nil {
-		helpers.Response(w, 500, err.Error(), nil)
+	// Handle GET for rendering login page
+	if r.Method == http.MethodGet {
+		tmpl, err := template.ParseFiles("views/home/auth.html")
+		if err != nil {
+			http.Error(w, "Error loading login page", http.StatusInternalServerError)
+			return
+		}
+		tmpl.Execute(w, nil)
 		return
 	}
 
+	// Handle POST from form or JSON
+	if r.Header.Get("Content-Type") == "application/json" {
+		// JSON login (API)
+		if err := json.NewDecoder(r.Body).Decode(&login); err != nil {
+			helpers.Response(w, 500, err.Error(), nil)
+			return
+		}
+	} else {
+		// Form login
+		login.Email = r.FormValue("email")
+		login.Password = r.FormValue("password")
+	}
+
+	if login.Email == "" || login.Password == "" {
+		if r.Header.Get("Content-Type") == "application/json" {
+			helpers.Response(w, 400, "Email and password must not be empty", nil)
+		} else {
+			http.Redirect(w, r, "/auth", http.StatusSeeOther)
+		}
+		return
+	}
+	// Cari user di DB
 	var user models.User
 	if err := configs.DB.First(&user, "email = ?", login.Email).Error; err != nil {
-		helpers.Response(w, 404, "Wrong email or password", nil)
+		// Handle untuk Form atau JSON
+		if r.Header.Get("Content-Type") == "application/json" {
+			helpers.Response(w, 404, "Wrong email or password", nil)
+		} else {
+			http.Redirect(w, r, "/auth", http.StatusSeeOther)
+		}
 		return
 	}
 
+	// Verifikasi password
 	if err := helpers.VerifyPassword(user.Password, login.Password); err != nil {
-		helpers.Response(w, 404, "Wrong email or password", nil)
+		if r.Header.Get("Content-Type") == "application/json" {
+			helpers.Response(w, 404, "Wrong email or password", nil)
+		} else {
+			http.Redirect(w, r, "/auth", http.StatusSeeOther)
+		}
 		return
 	}
 
-	// Create JWT token
+	// Berhasil login → token disiapkan
 	token, err := helpers.CreateToken(&user)
 	if err != nil {
 		helpers.Response(w, 500, err.Error(), nil)
 		return
 	}
 
-	// Create a success response
-	response := helpers.ResponseWithData{
-		Status:  "success",
-		Message: "Successfully Login",
-		Data:    token,
-	}
+	// Always set the cookie, for both JSON and form logins
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   false, // for localhost
+		SameSite: http.SameSiteLaxMode,
+	})
 
-	// Convert response to JSON
-	res, err := json.Marshal(response)
-	if err != nil {
-		helpers.Response(w, 500, err.Error(), nil)
+	if r.Header.Get("Content-Type") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  "success",
+			"message": "Login berhasil",
+			"data":    token,
+			"role":    user.Role,
+		})
 		return
 	}
 
-	// Log the response to the terminal
-	log.Println("Login Response: ", string(res)) // Log to VSCode terminal
+	// If login is from HTML form, redirect after setting cookie
+	http.Redirect(w, r, "/static/iot-dashboard/landing.html", http.StatusSeeOther)
+}
 
-	// Send the response to client (browser)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(res)
+func MonitoringPage(w http.ResponseWriter, r *http.Request) {
+	tmpl, err := template.ParseFiles("static/iot-dashboard/index.html") // pastikan file ini ada
+	if err != nil {
+		http.Error(w, "Error loading template", http.StatusInternalServerError)
+		return
+	}
+	tmpl.Execute(w, nil)
 }
