@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard IoT Landing Page</title>
+  <script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
+  <style>
+    /* Reset & base */
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+      font-family: 'Poppins', sans-serif;
+    }
+    body {
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Navbar */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 60px;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    nav .logo {
+      font-weight: 700;
+      font-size: 1.4rem;
+      letter-spacing: 2px;
+      cursor: default;
+      color: #00ff99;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 25px;
+      align-items: center;
+    }
+
+    nav ul li {
+      cursor: pointer;
+      position: relative;
+      padding: 8px 12px;
+      border-radius: 6px;
+      transition: background-color 0.3s ease;
+    }
+
+    nav ul li:hover {
+      background-color: #00ff99aa;
+      color: #002b00;
+      font-weight: 600;
+    }
+
+    nav ul li.active {
+      background-color: #00ff99;
+      color: #002b00;
+      font-weight: 700;
+    }
+
+    nav ul li.logout {
+      background-color: #ff4d4d;
+      color: white;
+      font-weight: 600;
+      transition: background-color 0.3s ease;
+    }
+
+    nav ul li.logout:hover {
+      background-color: #e63946;
+      color: #fff;
+      box-shadow: 0 0 8px #e63946;
+    }
+
+    /* Main Content */
+    main {
+      flex-grow: 1;
+      padding-top: 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 20px;
+    }
+
+    main h1 {
+      font-size: 3rem;
+      text-shadow: 0 0 15px #00ff99;
+      animation: glow 3s ease-in-out infinite alternate;
+    }
+
+    main p {
+      font-size: 1.25rem;
+      max-width: 600px;
+      color: #c1f7d5;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 12px 28px;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      color: #002b00;
+      background: #00ff99;
+      font-weight: 700;
+      box-shadow: 0 5px 15px #00ff9980;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      user-select: none;
+    }
+    .btn:hover {
+      box-shadow: 0 8px 20px #00ffccaa;
+      transform: translateY(-3px);
+    }
+    .btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 3px 8px #00ff9980;
+    }
+
+    /* Glow animation */
+    @keyframes glow {
+      0% { text-shadow: 0 0 10px #00ff99; }
+      100% { text-shadow: 0 0 25px #00ff99, 0 0 40px #00ff99cc; }
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      main h1 {
+        font-size: 2rem;
+      }
+      nav ul {
+        gap: 12px;
+      }
+    }
+
+    #menu-monitoring, #btn-go-monitoring {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo">IoT DASHBOARD</div>
+    <ul>
+      <li class="active" id="menu-monitoring">Monitoring</li>
+      <li id="menu-employee">Employee</li>
+      <li class="logout" id="btn-logout">Logout</li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>Selamat Datang di Dashboard IoT</h1>
+    <p>Pantau perangkat IoT Anda secara real-time, kelola karyawan, dan kendalikan akses dengan mudah.</p>
+    <button class="btn" id="btn-go-monitoring">Lihat Monitoring</button>
+  </main>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // Ambil elemen DOM di awal
+    const menuMonitoring = document.getElementById('menu-monitoring');
+    const menuEmployee = document.getElementById('menu-employee');
+    const btnLogout = document.getElementById('btn-logout');
+    const btnGoMonitoring = document.getElementById('btn-go-monitoring');
+
+    // Ambil token dari cookie dan simpan ke localStorage (sekali saja)
+    function getTokenFromCookie() {
+      const name = "token=";
+      const decodedCookie = decodeURIComponent(document.cookie);
+      const ca = decodedCookie.split(';');
+      for (let i = 0; i < ca.length; i++) {
+        let c = ca[i].trim();
+        if (c.indexOf(name) === 0) {
+          return c.substring(name.length, c.length);
+        }
+      }
+      return "";
+    }
+
+    if (!localStorage.getItem("access_token")) {
+      const tokenFromCookie = getTokenFromCookie();
+      if (tokenFromCookie) {
+        localStorage.setItem("access_token", tokenFromCookie);
+      }
+    }
+
+    const token = localStorage.getItem("access_token");
+    let role = null;
+
+    if (token) {
+      try {
+        const decoded = jwt_decode(token);
+        role = decoded.role;
+        console.log("Token:", token);
+        console.log("Decoded Token:", decoded);
+        console.log("Role:", role);
+      } catch (err) {
+        console.error("Token tidak valid:", err);
+        alert("Sesi Anda telah berakhir. Silakan login kembali.");
+        localStorage.removeItem("access_token");
+        window.location.href = '/views/home/auth.html';
+      }
+    }
+
+    console.log("Cookies:", document.cookie);
+    console.log("Token from cookie:", getTokenFromCookie());
+    console.log("Access token in localStorage:", localStorage.getItem("access_token"));
+
+    // 🔧 FIX: Gunakan variabel yang sudah dideklarasikan
+    const show = (el, display = "block") => {
+      if (el) el.style.display = display;
+    };
+
+    const hide = (el) => {
+      if (el) el.style.display = "none";
+    };
+
+    if (role === "admin") {
+      show(menuMonitoring);
+      show(btnGoMonitoring, "inline-block");
+    } else {
+      hide(menuMonitoring);
+      hide(btnGoMonitoring);
+    }
+
+    // Event Handler
+    function setActiveMenu(selected) {
+      [menuMonitoring, menuEmployee].forEach(item => {
+        if (item) item.classList.remove('active');
+      });
+      if (selected) selected.classList.add('active');
+    }
+
+    if (menuMonitoring) {
+      menuMonitoring.addEventListener('click', () => {
+        setActiveMenu(menuMonitoring);
+        window.location.href = '/static/iot-dashboard/index.html'; // ← FIXED PATH
+      });
+    }
+
+    if (menuEmployee) {
+      menuEmployee.addEventListener('click', () => {
+        setActiveMenu(menuEmployee);
+        alert('Menu Employee belum tersedia.');
+      });
+    }
+
+    if (btnLogout) {
+      btnLogout.addEventListener('click', () => {
+        const confirmed = confirm('Anda yakin ingin logout?');
+        if (confirmed) {
+          localStorage.removeItem("access_token");
+          alert('Logout berhasil.');
+          window.location.href = '/auth';
+        }
+      });
+    }
+
+    if (btnGoMonitoring) {
+      btnGoMonitoring.addEventListener('click', () => {
+        window.location.href = '/static/iot-dashboard/index.html'; // ← FIXED PATH
+      });
+    }
+  });
+
+  // Setelah respons login berhasil (mengasumsikan respons berisi token)
+
+</script>
+
+</body>
+</html>

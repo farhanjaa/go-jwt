@@ -5,6 +5,7 @@ type User struct {
 	Name     string
 	Email    string
 	Password string
+	Role     string `json:"role" gorm:"default:user"` // hanya "admin" atau "user"
 }
 
 type Register struct {
