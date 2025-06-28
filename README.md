@@ -105,7 +105,7 @@ func AdminOnly(next http.HandlerFunc) http.HandlerFunc {
     next(w, r)
   }
 }
-
+````
 📡 MQTT Topics
 Ensure your ESP32 firmware publishes/subscribes to the following topics:
 
@@ -138,9 +138,13 @@ cd iot-smart-home-backend
 ```
 2. Configure .env
 ```plaintext
-JWT_SECRET=your_jwt_secret
-DB_URL=your_database_url
+JWT_SECRET=your_secret
 PORT=8080
+DB_URL=postgres://user:pass@localhost:5432/iot_db
+INFLUX_URL=http://localhost:8086
+INFLUX_TOKEN=your_token
+INFLUX_ORG=your_org
+INFLUX_BUCKET=iot_data
 ```
 3. Run the backend server
 ```plaintext
