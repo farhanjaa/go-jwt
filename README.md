@@ -1,45 +1,73 @@
 # 🏠 IoT Smart Home Backend with Golang
 
-This project is a **Smart Home IoT Backend** built with **Golang**, featuring secure device control and environmental monitoring (temperature and humidity). The backend system integrates **JWT authentication** and **RBAC (Role-Based Access Control)** to ensure secure and role-aware access for users and devices.
+This project is a **Smart Home IoT Backend** built with **Golang**, featuring secure device control and real-time environmental monitoring (temperature and humidity). The backend system uses **JWT authentication**, **RBAC (Role-Based Access Control)**, and **InfluxDB 3.0** as a time-series database for storing sensor data.
 
 ---
 
 ## 🔐 Authentication & Authorization
 
-- **JWT (JSON Web Token)** for stateless, secure login and session handling
-- **RBAC (Role-Based Access Control)** to differentiate access levels between:
-  - `admin`: full access to all endpoints
-  - `user`: restricted access (view & limited control)
-  - `device`: allowed to push sensor data or control signals
+- **JWT (JSON Web Token)** for stateless login & session management
+- **RBAC (Role-Based Access Control)** to define user permissions:
+  - `admin`: full control
+  - `user`: limited access to devices and monitoring
+  - `device`: only allowed to push data
 
 ---
 
 ## ⚙️ Features
 
-- 📡 Real-time data collection from IoT sensors (e.g., ESP32)
-- 🌡️ Monitor temperature and humidity via WebSocket
-- 💡 Control relays (e.g., lamps, plugs) via REST API
-- 🔐 Secure login system using JWT tokens
-- 👥 Role-based authorization (admin/user/device)
-- 🌍 WebSocket integration for live updates
-- 📦 RESTful API for device and user management
-- 📄 Clean folder structure and maintainable Go modules
+- 🌡️ Real-time temperature & humidity tracking
+- 💡 Control smart appliances (relays, lamps, etc.)
+- 🔐 JWT login and token verification
+- 📡 WebSocket live update integration
+- 📦 REST API with secure route grouping
+- 🧑‍💼 Role management using RBAC
+- 🧠 Data logging with **InfluxDB 3.0** for time-series sensor data
+- 🛠️ Clean and modular Go project structure
 
 ---
 
 ## 🧰 Tech Stack
 
-- **Language**: Go (Golang)
-- **Routing**: `net/http`, `gorilla/mux`
-- **WebSocket**: `gorilla/websocket`
-- **Authentication**: `github.com/golang-jwt/jwt/v5`
-- **Authorization**: Custom RBAC middleware
-- **Database**: PostgreSQL or SQLite via GORM
-- **Security**: JWT, password hashing (bcrypt), middleware validation
+| Layer         | Technology                    |
+|---------------|-------------------------------|
+| Backend Lang  | Go (Golang)                   |
+| WebSocket     | Gorilla WebSocket             |
+| REST API      | net/http + Gorilla Mux        |
+| Auth          | Golang JWT v5                 |
+| RBAC          | Custom middleware             |
+| DB (Users)    | PostgreSQL / SQLite (GORM)    |
+| DB (IoT Data) | **InfluxDB 3.0** (time-series)|
+| Security      | bcrypt, token expiration      |
 
 ---
 
+## 📦 InfluxDB 3.0 Integration
 
+Sensor data (temperature, humidity) is pushed to **InfluxDB 3.0**, which stores values in a high-performance time-series format.
+
+### Example measurement schema
+
+- **Measurement**: `sensor_data`
+- **Tags**: `device_id`, `location`
+- **Fields**:
+  - `temperature` (float)
+  - `humidity` (float)
+- **Timestamp**: `received_at`
+
+### Sample Go insert code
+
+```go
+writeAPI := influxClient.WriteAPIBlocking(org, bucket)
+
+point := influxdb3.NewPointWithMeasurement("sensor_data").
+    AddTag("device_id", "esp32_01").
+    AddField("temperature", 28.4).
+    AddField("humidity", 60.2).
+    SetTime(time.Now())
+
+err := writeAPI.WritePoint(context.Background(), point)
+```
 ---
 
 ## 🚀 API Overview
@@ -62,7 +90,9 @@ This project is a **Smart Home IoT Backend** built with **Golang**, featuring se
 
 ---
 
-## 🛡️ RBAC Example
+
+
+## 🛡️ RBAC Middleware Example
 
 ```go
 func AdminOnly(next http.HandlerFunc) http.HandlerFunc {
