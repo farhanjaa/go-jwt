@@ -60,7 +60,7 @@ go run main.go
 | 📥 Subscribe | `sensor/temperature` | `{"temperature": 28.5, "timestamp": 1719322431}` |
 | 📥 Subscribe | `sensor/humidity`    | `{"humidity": 65.1, "timestamp": 1719322431}`    |
 
-#🧠 How it Works
+🧠 How it Works
 -ESP32 devices publish temperature & humidity data to MQTT broker.
 
 -The Golang backend subscribes to these topics and forwards the data to connected WebSocket clients.
@@ -69,14 +69,14 @@ go run main.go
 
 -Backend publishes MQTT control messages (e.g., {"relay1": "ON"}) to the broker to control devices.s
 
-#📡 MQTT Topics
+📡 MQTT Topics
 Ensure your ESP32 firmware publishes/subscribes to the following topics:
 
-emqx/IoTdata → Publishes temperature & humidity
+-emqx/IoTdata → Publishes temperature & humidity
 
-emqx/IoTcontrol/relay1 → Controls Lampu Ruang Tamu
+-emqx/IoTcontrol/relay1 → Controls Lampu Ruang Tamu
 
-emqx/IoTcontrol/relay2 → Controls Lampu Dapur
+-emqx/IoTcontrol/relay2 → Controls Lampu Dapur
 
 🧪 Sample Payloads
 Sensor Data (from ESP32)(json):
