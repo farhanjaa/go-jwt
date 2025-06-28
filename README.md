@@ -69,6 +69,15 @@ go run main.go
 
 -Backend publishes MQTT control messages (e.g., {"relay1": "ON"}) to the broker to control devices.s
 
+#📡 MQTT Topics
+Ensure your ESP32 firmware publishes/subscribes to the following topics:
+
+emqx/IoTdata → Publishes temperature & humidity
+
+emqx/IoTcontrol/relay1 → Controls Lampu Ruang Tamu
+
+emqx/IoTcontrol/relay2 → Controls Lampu Dapur
+
 🧪 Sample Payloads
 Sensor Data (from ESP32)(json):
 ```plaintext
